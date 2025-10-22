@@ -3,12 +3,12 @@ main = "bridge.js"
 compatibility_date = "2025-10-22"
 
 [vars]
-# Optional override (default: gemini-1.5-flash-latest)
+# Optional: override defaults
 GEMINI_MODEL = "gemini-1.5-flash-latest"
+OPENAI_MODEL = "gpt-4o-mini"
 
-# For Codex HTTP endpoint (if used)
-CODEX_HTTP_URL = "https://codex.your-domain.tld/v1/generate"
-
-# Secrets to add in dashboard:
+# Secrets to add (in dashboard):
 # - GATEWAY_PSK
 # - GEMINI_API_KEY
+# - OPENAI_API_KEY
+
