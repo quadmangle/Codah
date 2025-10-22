@@ -3,8 +3,11 @@ main = "gateway.js"
 compatibility_date = "2025-10-22"
 
 [vars]
-# URL of the Bridge worker (origin + route, no trailing slash)
-BRIDGE_URL = "https://YOUR-BRIDGE.example.workers.dev"
+# Comma-separated list of allowed front-end origins (scheme+host+port)
+ALLOWED_ORIGINS = "https://your-frontend.example,https://another-allowed.example"
 
-# Secrets to add in dashboard:
+# URL of the bridge worker (origin + route, no trailing slash)
+BRIDGE_URL = "https://your-bridge.example.workers.dev"
+
+# Secrets to add (in dashboard):
 # - GATEWAY_PSK
