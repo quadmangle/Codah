@@ -1,0 +1,75 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Codah — minimal chat</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'unsafe-inline' 'self'; connect-src 'self' https:; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'">
+  <style>
+    body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:#0b1220;color:#e8eef7}
+    .wrap{max-width:820px;margin:0 auto;padding:24px}
+    h1{font-size:1.3rem;margin:0 0 12px}
+    .bar{display:flex;gap:8px;margin-top:10px}
+    input,select,button,textarea{font:inherit}
+    textarea{width:100%;min-height:110px;border-radius:10px;border:1px solid #2a3650;background:#0f1a2e;color:#e8eef7;padding:12px}
+    select,button{border-radius:10px;border:1px solid #2a3650;background:#14203a;color:#e8eef7;padding:10px 12px}
+    button{cursor:pointer}
+    .log{white-space:pre-wrap;background:#0f1a2e;border:1px solid #2a3650;border-radius:10px;padding:12px;margin-top:12px;min-height:140px}
+    .row{display:flex;gap:8px;align-items:center}
+    .grow{flex:1}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Codah — Repo → Gateway → Bridge → Codex / Studio</h1>
+    <div class="row">
+      <label>Provider:</label>
+      <select id="provider">
+        <option value="studio">studio (Google AI Studio)</option>
+        <option value="codex">codex (HTTP endpoint)</option>
+      </select>
+    </div>
+    <textarea id="msg" placeholder="Type your message…"></textarea>
+    <div class="bar">
+      <button id="send">Send</button>
+      <span id="status" aria-live="polite"></span>
+    </div>
+    <div class="log" id="log" role="log" aria-live="polite"></div>
+  </div>
+
+  <script>
+    // EDIT THIS to your Gateway Worker public URL (origin + route):
+    const GATEWAY_URL = 'https://YOUR-GATEWAY.example.workers.dev/v1/gateway';
+
+    const $ = (id)=>document.getElementById(id);
+    const enc = new TextEncoder();
+
+    function normalize(s){
+      return s.normalize('NFKC').replace(/[^\S\r\n]+/g,' ').trim();
+    }
+
+    async function send(){
+      const provider = $('provider').value;
+      const text = normalize($('msg').value || '');
+      if(!text){ $('status').textContent='Empty message'; return; }
+      $('status').textContent='…sending';
+      $('send').disabled = true;
+
+      const payload = { provider, message: text, lang: 'en', honeypot:'' };
+      const res = await fetch(GATEWAY_URL, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json().catch(()=>({ error:'bad json'}));
+      $('send').disabled = false;
+      $('status').textContent = res.ok ? 'ok' : 'error';
+      $('log').textContent = res.ok ? (data.text || JSON.stringify(data,null,2))
+                                    : (data.error || res.status+' '+res.statusText);
+    }
+    $('send').addEventListener('click', send);
+  </script>
+</body>
+</html>
