@@ -1,0 +1,11 @@
+{
+  "maxChars": 2000,
+  "minIntervalMs": 800,
+  "bannedPatterns": [
+    "(?i)api[_-]?key",
+    "(?i)authorization[:=]",
+    "(?i)secret",
+    "(?i)<script[^>]*>"
+  ],
+  "allowedProviders": ["studio", "codex"]
+}
