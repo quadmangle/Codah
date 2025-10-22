@@ -1,75 +1,302 @@
-
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Codah — minimal chat</title>
+  <title>Codah — conversational console</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; script-src 'self'; style-src 'unsafe-inline' 'self'; connect-src 'self' https:; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'">
   <style>
-    body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:#0b1220;color:#e8eef7}
-    .wrap{max-width:820px;margin:0 auto;padding:24px}
-    h1{font-size:1.3rem;margin:0 0 12px}
-    .bar{display:flex;gap:8px;margin-top:10px}
-    input,select,button,textarea{font:inherit}
-    textarea{width:100%;min-height:110px;border-radius:10px;border:1px solid #2a3650;background:#0f1a2e;color:#e8eef7;padding:12px}
-    select,button{border-radius:10px;border:1px solid #2a3650;background:#14203a;color:#e8eef7;padding:10px 12px}
-    button{cursor:pointer}
-    .log{white-space:pre-wrap;background:#0f1a2e;border:1px solid #2a3650;border-radius:10px;padding:12px;margin-top:12px;min-height:140px}
-    .row{display:flex;gap:8px;align-items:center}
-    .grow{flex:1}
+    :root{
+      color-scheme:light;
+      font-family:"Inter", "Segoe UI", Roboto, system-ui, -apple-system, sans-serif;
+      --bg:#eef1f7;
+      --panel:#ffffff;
+      --panel-border:#d7deed;
+      --muted:#6b7285;
+      --primary:#2b6bff;
+      --primary-dark:#184dce;
+      --accent:#eff4ff;
+      --shadow:0 24px 60px rgba(15,40,96,0.12);
+    }
+    *,*::before,*::after{box-sizing:border-box}
+    body{margin:0;min-height:100vh;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:32px;color:#111827}
+    .stage{width:100%;display:flex;justify-content:center}
+    .console{background:var(--panel);border:1px solid var(--panel-border);border-radius:36px;box-shadow:var(--shadow);padding:28px;display:flex;flex-direction:column;gap:24px;width:min(460px,92vw);min-height:640px}
+    .toolbar{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+    .toolbar-brand{display:flex;gap:14px;align-items:flex-start}
+    .brand-glow{width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at center,#43d3ff,#2b6bff);box-shadow:0 0 16px rgba(43,107,255,0.45);margin-top:6px}
+    .brand-copy{display:flex;flex-direction:column;gap:4px}
+    .brand-title{font-size:1.05rem;font-weight:600;letter-spacing:0.02em;color:#0f172a}
+    .provider-select{display:flex;align-items:center;gap:8px;font-size:0.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em}
+    .provider-select select{appearance:none;border:1px solid var(--panel-border);border-radius:999px;background:var(--accent);padding:6px 18px;font:inherit;color:#1f2a44;cursor:pointer;transition:border-color .2s ease,box-shadow .2s ease}
+    .provider-select select:focus-visible{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(43,107,255,0.35)}
+    .toolbar-controls{display:flex;gap:10px}
+    .chip{border:none;border-radius:999px;background:var(--primary);color:#fff;font-size:0.82rem;font-weight:600;padding:9px 20px;cursor:pointer;box-shadow:0 12px 24px rgba(43,107,255,0.28);transition:transform .2s ease,box-shadow .2s ease}
+    .chip:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(43,107,255,0.45)}
+    .chip:active{transform:translateY(1px)}
+    .chip[aria-pressed="true"]{background:var(--primary-dark)}
+    .chat-surface{flex:1;background:#f8faff;border-radius:28px;border:1px solid var(--panel-border);padding:24px;display:flex}
+    .chat-log{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:18px;scrollbar-width:thin;scrollbar-color:#c3d0ea transparent}
+    .chat-log::-webkit-scrollbar{width:6px}
+    .chat-log::-webkit-scrollbar-track{background:transparent}
+    .chat-log::-webkit-scrollbar-thumb{background:#c3d0ea;border-radius:999px}
+    .empty-state{margin:0 auto;color:var(--muted);font-size:0.9rem;padding-top:36px;text-align:center;max-width:240px}
+    .message{display:grid;gap:6px;max-width:88%}
+    .message-role{font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;color:#9aa3b7}
+    .message-bubble{margin:0;padding:14px 18px;border-radius:20px;line-height:1.55;background:#fff;border:1px solid rgba(209,218,236,0.9);color:#1b2337;box-shadow:0 16px 32px rgba(15,40,96,0.08)}
+    .message-user{margin-left:auto;text-align:right}
+    .message-user .message-role{color:#89a8ff}
+    .message-user .message-bubble{background:var(--primary);color:#fff;border:none;border-bottom-right-radius:8px}
+    .message-assistant .message-bubble{border-radius:20px;border-bottom-left-radius:8px}
+    .message-system .message-bubble{font-style:italic;background:#f2f4fb;color:#4c566a;border-style:dashed}
+    .composer{display:flex;flex-direction:column;gap:16px}
+    .composer input[type="text"]{width:100%;border:1px solid var(--panel-border);border-radius:18px;padding:16px 20px;font-size:1rem;background:#f9fbff;color:#111827;transition:border-color .2s ease,box-shadow .2s ease}
+    .composer input[type="text"]:focus-visible{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(43,107,255,0.28);background:#fff}
+    .composer input[type="text"]:disabled{background:#e8edf8;color:#6b7285}
+    .actions{display:flex;gap:10px;flex-wrap:wrap}
+    .action{flex:1 1 30%;display:inline-flex;justify-content:center;align-items:center;border:none;border-radius:999px;background:var(--primary);color:#fff;font-weight:600;padding:12px 18px;cursor:pointer;box-shadow:0 14px 30px rgba(43,107,255,0.25);transition:transform .2s ease,box-shadow .2s ease}
+    .action:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(43,107,255,0.45)}
+    .action:active{transform:translateY(1px)}
+    .action:is(:disabled,.is-disabled){background:#9bb5ff;color:#f1f5ff;cursor:not-allowed;box-shadow:none}
+    .action.is-active{background:var(--primary-dark)}
+    .status{min-height:1.3rem;font-size:0.85rem;margin:0;color:var(--muted)}
+    .status[data-tone="success"]{color:#1c8f4d}
+    .status[data-tone="error"]{color:#d02938}
+    .status[data-tone="warn"]{color:#cc7a00}
+    .sr-only{position:absolute;clip:rect(0 0 0 0);clip-path:inset(50%);height:1px;width:1px;overflow:hidden;white-space:nowrap;border:0;padding:0}
+    @media (max-width:520px){
+      body{padding:16px}
+      .console{padding:22px;border-radius:28px;min-height:520px}
+      .chat-surface{padding:18px;border-radius:24px}
+      .actions{flex-direction:column}
+      .action{width:100%}
+    }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>Codah — Repo → Gateway → Bridge → Codex / Studio</h1>
-    <div class="row">
-      <label>Provider:</label>
-      <select id="provider">
-        <option value="studio">studio (Google AI Studio)</option>
-        <option value="codex">codex (HTTP endpoint)</option>
-      </select>
-    </div>
-    <textarea id="msg" placeholder="Type your message…"></textarea>
-    <div class="bar">
-      <button id="send">Send</button>
-      <span id="status" aria-live="polite"></span>
-    </div>
-    <div class="log" id="log" role="log" aria-live="polite"></div>
-  </div>
+  <main class="stage">
+    <section class="console" role="application" aria-label="Codah conversational console">
+      <header class="toolbar">
+        <div class="toolbar-brand">
+          <span class="brand-glow" aria-hidden="true"></span>
+          <div class="brand-copy">
+            <span class="brand-title">Codah Console</span>
+            <label class="provider-select" for="provider">
+              <span>Route</span>
+              <select id="provider" name="provider">
+                <option value="studio">studio (Google AI Studio)</option>
+                <option value="codex">codex (HTTP endpoint)</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div class="toolbar-controls">
+          <button type="button" class="chip" id="lang-toggle" aria-label="Switch language">EN</button>
+          <button type="button" class="chip" id="mute-toggle" aria-pressed="false">Mute</button>
+        </div>
+      </header>
+
+      <div class="chat-surface">
+        <div class="chat-log" id="log" role="log" aria-live="polite" aria-label="Conversation transcript">
+          <p class="empty-state" id="empty-state">Say hello to start a conversation.</p>
+        </div>
+      </div>
+
+      <form class="composer" id="composer" autocomplete="off">
+        <label class="sr-only" for="msg">Message</label>
+        <input id="msg" name="message" type="text" inputmode="text" placeholder="hello" autocomplete="off">
+        <div class="actions">
+          <button type="submit" class="action primary" id="send">Send</button>
+          <button type="button" class="action" id="record" aria-pressed="false">Record</button>
+          <button type="button" class="action" id="upload">Upload</button>
+        </div>
+        <p class="status" id="status" role="status" aria-live="polite"></p>
+      </form>
+
+      <input type="file" id="file-upload" class="sr-only" accept="audio/*,.txt,.md,.pdf,image/*" tabindex="-1" aria-hidden="true">
+    </section>
+  </main>
 
   <script>
-    // EDIT THIS to your Gateway Worker public URL (origin + route):
     const GATEWAY_URL = 'https://YOUR-GATEWAY.example.workers.dev/v1/gateway';
 
-    const $ = (id)=>document.getElementById(id);
-    const enc = new TextEncoder();
+    const $ = (id) => document.getElementById(id);
+    const state = { lang: 'en', muted: false, recording: false };
 
-    function normalize(s){
-      return s.normalize('NFKC').replace(/[^\S\r\n]+/g,' ').trim();
+    const composer = $('composer');
+    const msgInput = $('msg');
+    const sendBtn = $('send');
+    const statusEl = $('status');
+    const log = $('log');
+    let emptyState = $('empty-state');
+    const providerSelect = $('provider');
+    const langToggle = $('lang-toggle');
+    const muteToggle = $('mute-toggle');
+    const recordBtn = $('record');
+    const uploadBtn = $('upload');
+    const uploadInput = $('file-upload');
+
+    function normalize(value){
+      return value.normalize('NFKC').replace(/[^\S\r\n]+/g,' ').trim();
     }
 
-    async function send(){
-      const provider = $('provider').value;
-      const text = normalize($('msg').value || '');
-      if(!text){ $('status').textContent='Empty message'; return; }
-      $('status').textContent='…sending';
-      $('send').disabled = true;
+    function setStatus(message = '', tone = 'info'){
+      if(!statusEl){ return; }
+      statusEl.textContent = message;
+      statusEl.dataset.tone = tone;
+    }
 
-      const payload = { provider, message: text, lang: 'en', honeypot:'' };
-      const res = await fetch(GATEWAY_URL, {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify(payload)
+    function clearEmptyState(){
+      if(emptyState){
+        emptyState.remove();
+        emptyState = null;
+      }
+    }
+
+    function createMessage(role, text){
+      const article = document.createElement('article');
+      article.className = `message message-${role}`;
+      const label = document.createElement('span');
+      label.className = 'message-role';
+      label.textContent = role === 'user' ? 'You' : role === 'assistant' ? 'Codah' : 'System';
+      const bubble = document.createElement('p');
+      bubble.className = 'message-bubble';
+      bubble.textContent = text;
+      article.append(label, bubble);
+      return article;
+    }
+
+    function appendMessage(role, text){
+      if(!log){ return; }
+      clearEmptyState();
+      log.appendChild(createMessage(role, text));
+      log.scrollTo({ top: log.scrollHeight, behavior: 'smooth' });
+    }
+
+    async function sendMessage(){
+      if(!msgInput || !sendBtn){ return; }
+      const text = normalize(msgInput.value || '');
+      if(!text){
+        setStatus('Type a message to begin.', 'warn');
+        msgInput.focus();
+        return;
+      }
+
+      appendMessage('user', text);
+      msgInput.value = '';
+      msgInput.focus();
+
+      const provider = providerSelect ? providerSelect.value : 'codex';
+      const payload = { provider, message: text, lang: state.lang, honeypot: '' };
+
+      sendBtn.disabled = true;
+      msgInput.disabled = true;
+      setStatus('Sending…');
+
+      try{
+        const res = await fetch(GATEWAY_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json().catch(() => ({ error: 'Unable to parse response.' }));
+        const ok = res.ok && !data.error;
+        const content = data.text || data.message || data.output;
+
+        if(ok && content){
+          appendMessage('assistant', content);
+          setStatus('Delivered', 'success');
+        }else if(ok){
+          appendMessage('assistant', JSON.stringify(data, null, 2));
+          setStatus('Response received', 'success');
+        }else{
+          appendMessage('system', data.error || `${res.status} ${res.statusText}`);
+          setStatus('Request failed', 'error');
+        }
+      }catch(err){
+        const message = err instanceof Error ? err.message : 'Network error';
+        appendMessage('system', message);
+        setStatus('Network error', 'error');
+      }finally{
+        sendBtn.disabled = false;
+        msgInput.disabled = false;
+        msgInput.focus();
+      }
+    }
+
+    if(composer){
+      composer.addEventListener('submit', (event) => {
+        event.preventDefault();
+        sendMessage();
       });
-      const data = await res.json().catch(()=>({ error:'bad json'}));
-      $('send').disabled = false;
-      $('status').textContent = res.ok ? 'ok' : 'error';
-      $('log').textContent = res.ok ? (data.text || JSON.stringify(data,null,2))
-                                    : (data.error || res.status+' '+res.statusText);
     }
-    $('send').addEventListener('click', send);
+
+    if(sendBtn){
+      sendBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        sendMessage();
+      });
+    }
+
+    if(msgInput){
+      msgInput.addEventListener('keydown', (event) => {
+        if(event.key === 'Enter' && !event.shiftKey){
+          event.preventDefault();
+          sendMessage();
+        }
+      });
+    }
+
+    if(langToggle){
+      langToggle.addEventListener('click', () => {
+        state.lang = state.lang === 'en' ? 'es' : 'en';
+        langToggle.textContent = state.lang.toUpperCase();
+        langToggle.setAttribute('aria-label', `Language ${state.lang.toUpperCase()}`);
+        setStatus(`Language set to ${state.lang.toUpperCase()}.`);
+      });
+    }
+
+    if(muteToggle){
+      muteToggle.addEventListener('click', () => {
+        state.muted = !state.muted;
+        muteToggle.setAttribute('aria-pressed', String(state.muted));
+        muteToggle.textContent = state.muted ? 'Muted' : 'Mute';
+        setStatus(state.muted ? 'Notifications muted.' : 'Notifications active.');
+      });
+    }
+
+    if(recordBtn){
+      recordBtn.addEventListener('click', () => {
+        state.recording = !state.recording;
+        recordBtn.classList.toggle('is-active', state.recording);
+        recordBtn.setAttribute('aria-pressed', String(state.recording));
+        recordBtn.textContent = state.recording ? 'Stop' : 'Record';
+        setStatus(state.recording ? 'Recording… (preview)' : 'Recording saved.');
+        if(state.recording){
+          appendMessage('system', 'Voice recorder armed — capturing audio preview.');
+        }else{
+          appendMessage('system', 'Voice recorder stopped. Audio not yet uploaded.');
+        }
+      });
+    }
+
+    if(uploadBtn && uploadInput){
+      uploadBtn.addEventListener('click', () => {
+        uploadInput.click();
+      });
+
+      uploadInput.addEventListener('change', () => {
+        if(uploadInput.files && uploadInput.files.length){
+          const file = uploadInput.files[0];
+          const size = file.size ? ` (${Math.max(1, Math.round(file.size / 1024))} KB)` : '';
+          appendMessage('system', `Attached ${file.name}${size}.`);
+          setStatus(`Ready to upload ${file.name}.`);
+        }
+        uploadInput.value = '';
+      });
+    }
   </script>
 </body>
 </html>
