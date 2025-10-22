@@ -1,6 +1,20 @@
 {
+  "version": 2,
   "maxChars": 2000,
   "minIntervalMs": 900,
+  "maxAttachments": 3,
+  "maxAttachmentBytes": 1048576,
+  "allowedAttachmentTypes": [
+    "audio/webm",
+    "audio/mp4",
+    "audio/mpeg",
+    "audio/wav",
+    "text/plain",
+    "text/markdown",
+    "application/pdf",
+    "image/png",
+    "image/jpeg"
+  ],
   "bannedPatterns": [
     "(?i)api[_-]?key",
     "(?i)authorization[:=]",
@@ -12,7 +26,7 @@
     "(?i)data:text/html",
     "(?i)file://"
   ],
-  "allowedProviders": ["studio", "codex"],
+  "allowedProviders": ["atlas", "aurora"],
   "denyUserAgents": [
     "(?i)bot",
     "(?i)spider",

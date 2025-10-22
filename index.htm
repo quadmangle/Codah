@@ -60,6 +60,16 @@
     .action:active{transform:translateY(1px)}
     .action:is(:disabled,.is-disabled){background:#9bb5ff;color:#f1f5ff;cursor:not-allowed;box-shadow:none}
     .action.is-active{background:var(--primary-dark)}
+    .attachments-preview{display:flex;flex-direction:column;gap:10px;border-radius:16px;background:#eef3ff;border:1px dashed rgba(96,127,255,0.4);padding:12px 16px;transition:opacity .2s ease}
+    .attachments-preview.is-empty{display:none}
+    .attachments-title{margin:0;font-size:0.8rem;font-weight:600;letter-spacing:0.05em;color:#44527a;text-transform:uppercase}
+    .attachments-list{margin:0;list-style:none;padding:0;display:flex;flex-direction:column;gap:8px}
+    .attachments-item{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:0.85rem;color:#1b2337;background:#fff;border-radius:12px;padding:10px 14px;border:1px solid rgba(66,104,198,0.25)}
+    .attachments-meta{display:flex;flex-direction:column;gap:4px}
+    .attachments-name{font-weight:600;font-size:0.88rem;color:#1b2337}
+    .attachments-size{font-size:0.75rem;color:#6b7285}
+    .attachments-remove{border:none;border-radius:8px;padding:6px 10px;font-size:0.75rem;font-weight:600;background:#d92c3b;color:#fff;cursor:pointer;transition:opacity .2s ease}
+    .attachments-remove:hover{opacity:0.85}
     .status{min-height:1.3rem;font-size:0.85rem;margin:0;color:var(--muted)}
     .status[data-tone="success"]{color:#1c8f4d}
     .status[data-tone="error"]{color:#d02938}
@@ -85,8 +95,8 @@
             <label class="provider-select" for="provider">
               <span>Route</span>
               <select id="provider" name="provider">
-                <option value="studio">studio (Google AI Studio)</option>
-                <option value="codex">codex (HTTP endpoint)</option>
+                <option value="atlas">Atlas (Edge Primary)</option>
+                <option value="aurora">Aurora (Resilient Fallback)</option>
               </select>
             </label>
           </div>
@@ -111,6 +121,7 @@
           <button type="button" class="action" id="record" aria-pressed="false">Record</button>
           <button type="button" class="action" id="upload">Upload</button>
         </div>
+        <div class="attachments-preview is-empty" id="attachments" aria-live="polite"></div>
         <p class="status" id="status" role="status" aria-live="polite"></p>
       </form>
 
@@ -119,10 +130,150 @@
   </main>
 
   <script>
-    const GATEWAY_URL = 'https://YOUR-GATEWAY.example.workers.dev/v1/gateway';
+    const translations = {
+      en: {
+        emptyState: 'Say hello to start a conversation.',
+        placeholder: 'Type your message',
+        send: 'Send',
+        recordStart: 'Record',
+        recordStop: 'Stop',
+        upload: 'Upload',
+        languageSet: 'Language set to {code}.',
+        muteOn: 'Notifications muted.',
+        muteOff: 'Notifications active.',
+        muteLabelOn: 'Mute',
+        muteLabelOff: 'Unmute',
+        sending: 'Sending…',
+        delivered: 'Delivered',
+        responseReceived: 'Response received',
+        requestFailed: 'Request failed',
+        networkError: 'Network error',
+        typePrompt: 'Type a message to begin.',
+        recording: 'Recording…',
+        recordReady: 'Recording captured.',
+        recordReadyDetail: 'Voice recorder stopped and audio attached.',
+        recordError: 'Recording unavailable.',
+        recordErrorDetail: 'Could not capture audio from this device.',
+        recordingUnsupported: 'Recording is not supported in this browser.',
+        voiceArmed: 'Voice recorder armed — capturing audio preview.',
+        voiceStopped: 'Voice recorder stopped. Audio attached for sending.',
+        uploadReady: 'Attachment ready: {name}',
+        uploadReadyDetail: 'Attached {name} ({size} KB).',
+        uploadTooLarge: 'File exceeds attachment limit.',
+        uploadUnsupported: 'File type is not supported.',
+        attachmentLimit: 'Attachment limit reached.',
+        attachmentRemoved: '{name} removed.',
+        attachmentsHeading: 'Attachments ready:',
+        gatewayConfigured: 'Using gateway {url}.',
+        providerAtlas: 'Atlas (Edge Primary)',
+        providerAurora: 'Aurora (Resilient Fallback)'
+      },
+      es: {
+        emptyState: 'Saluda para iniciar una conversación.',
+        placeholder: 'Escribe tu mensaje',
+        send: 'Enviar',
+        recordStart: 'Grabar',
+        recordStop: 'Detener',
+        upload: 'Adjuntar',
+        languageSet: 'Idioma configurado a {code}.',
+        muteOn: 'Notificaciones silenciadas.',
+        muteOff: 'Notificaciones activas.',
+        muteLabelOn: 'Silenciar',
+        muteLabelOff: 'Activar sonido',
+        sending: 'Enviando…',
+        delivered: 'Entregado',
+        responseReceived: 'Respuesta recibida',
+        requestFailed: 'Solicitud fallida',
+        networkError: 'Error de red',
+        typePrompt: 'Escribe un mensaje para comenzar.',
+        recording: 'Grabando…',
+        recordReady: 'Grabación capturada.',
+        recordReadyDetail: 'Grabadora detenida y audio adjunto.',
+        recordError: 'Grabación no disponible.',
+        recordErrorDetail: 'No se pudo capturar audio en este dispositivo.',
+        recordingUnsupported: 'El navegador no admite la grabación.',
+        voiceArmed: 'Grabadora activada: capturando vista previa.',
+        voiceStopped: 'Grabadora detenida. Audio adjunto para enviar.',
+        uploadReady: 'Adjunto listo: {name}',
+        uploadReadyDetail: 'Se adjuntó {name} ({size} KB).',
+        uploadTooLarge: 'El archivo excede el límite permitido.',
+        uploadUnsupported: 'Tipo de archivo no admitido.',
+        attachmentLimit: 'Se alcanzó el límite de adjuntos.',
+        attachmentRemoved: '{name} eliminado.',
+        attachmentsHeading: 'Adjuntos listos:',
+        gatewayConfigured: 'Usando gateway {url}.',
+        providerAtlas: 'Atlas (Principal en el Borde)',
+        providerAurora: 'Aurora (Respaldo resiliente)'
+      }
+    };
+
+    const providerLabels = {
+      atlas: { key: 'providerAtlas' },
+      aurora: { key: 'providerAurora' }
+    };
+
+    const ATTACHMENT_TYPES = new Set([
+      'audio/webm',
+      'audio/mp4',
+      'audio/mpeg',
+      'audio/wav',
+      'text/plain',
+      'text/markdown',
+      'application/pdf',
+      'image/png',
+      'image/jpeg'
+    ]);
+
+    const MAX_ATTACHMENT_BYTES = 1048576;
+    const MAX_ATTACHMENTS = 3;
+
+    const EXTENSION_MIME_MAP = {
+      md: 'text/markdown',
+      markdown: 'text/markdown',
+      txt: 'text/plain',
+      text: 'text/plain',
+      pdf: 'application/pdf',
+      png: 'image/png',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      mp3: 'audio/mpeg',
+      wav: 'audio/wav',
+      m4a: 'audio/mp4',
+      webm: 'audio/webm'
+    };
+
+    const STORAGE_KEYS = { lang: 'codah-console-lang' };
+
+    function resolveGatewayUrl(){
+      const search = new URLSearchParams(window.location.search);
+      const fromQuery = search.get('gateway');
+      const fromGlobal = window.__GATEWAY_URL__ || '';
+      const fromMeta = document.querySelector('meta[name="codah-gateway"]')?.content || '';
+      const fallback = new URL('/v1/gateway', window.location.origin).href;
+      const candidate = fromQuery || fromGlobal || fromMeta || fallback;
+      try{
+        const url = new URL(candidate, window.location.origin);
+        if(url.protocol !== 'https:' && url.origin !== window.location.origin){
+          throw new Error('insecure');
+        }
+        return url.href;
+      }catch(err){
+        console.warn('Invalid gateway url, using default', err);
+        return fallback;
+      }
+    }
+
+    const GATEWAY_URL = resolveGatewayUrl();
 
     const $ = (id) => document.getElementById(id);
-    const state = { lang: 'en', muted: false, recording: false };
+    const state = {
+      lang: localStorage.getItem(STORAGE_KEYS.lang) || 'en',
+      muted: false,
+      recording: false,
+      attachments: [],
+      mediaRecorder: null,
+      mediaStream: null
+    };
 
     const composer = $('composer');
     const msgInput = $('msg');
@@ -136,14 +287,28 @@
     const recordBtn = $('record');
     const uploadBtn = $('upload');
     const uploadInput = $('file-upload');
+    const attachmentsEl = $('attachments');
 
-    function normalize(value){
-      return value.normalize('NFKC').replace(/[^\S\r\n]+/g,' ').trim();
+    function t(key, replacements = {}){
+      const dict = translations[state.lang] || translations.en;
+      let phrase = dict[key];
+      if(!phrase){
+        phrase = translations.en[key];
+      }
+      if(!phrase){
+        return key;
+      }
+      return phrase.replace(/\{(\w+)\}/g, (_, token) => {
+        return Object.prototype.hasOwnProperty.call(replacements, token) ? replacements[token] : `{${token}}`;
+      });
     }
 
-    function setStatus(message = '', tone = 'info'){
+    function setStatus(message = '', tone = 'info', replacements = {}){
       if(!statusEl){ return; }
-      statusEl.textContent = message;
+      const resolved = translations[state.lang]?.[message] || translations.en?.[message] || message;
+      statusEl.textContent = resolved.replace(/\{(\w+)\}/g, (_, token) => {
+        return Object.prototype.hasOwnProperty.call(replacements, token) ? replacements[token] : `{${token}}`;
+      });
       statusEl.dataset.tone = tone;
     }
 
@@ -174,11 +339,155 @@
       log.scrollTo({ top: log.scrollHeight, behavior: 'smooth' });
     }
 
+    function normalize(value){
+      return value.normalize('NFKC').replace(/[^\S\r\n]+/g,' ').trim();
+    }
+
+    function updateLanguageUI(){
+      document.documentElement.lang = state.lang;
+      if(msgInput){
+        msgInput.placeholder = t('placeholder');
+      }
+      if(sendBtn){
+        sendBtn.textContent = t('send');
+      }
+      if(recordBtn){
+        recordBtn.textContent = state.recording ? t('recordStop') : t('recordStart');
+      }
+      if(uploadBtn){
+        uploadBtn.textContent = t('upload');
+      }
+      if(langToggle){
+        langToggle.textContent = state.lang.toUpperCase();
+        langToggle.setAttribute('aria-label', `Language ${state.lang.toUpperCase()}`);
+      }
+      if(muteToggle){
+        muteToggle.textContent = state.muted ? t('muteLabelOff') : t('muteLabelOn');
+      }
+      if(emptyState){
+        emptyState.textContent = t('emptyState');
+      }
+      if(providerSelect){
+        Array.from(providerSelect.options).forEach((option) => {
+          const meta = providerLabels[option.value];
+          if(meta){
+            option.textContent = t(meta.key);
+          }
+        });
+      }
+      renderAttachments();
+    }
+
+    function sanitizeFileName(name){
+      return (name || 'attachment')
+        .replace(/[^\w.\-\s]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 128) || 'attachment';
+    }
+
+    function totalAttachmentBytes(){
+      return state.attachments.reduce((sum, item) => sum + (item.size || 0), 0);
+    }
+
+    function renderAttachments(){
+      if(!attachmentsEl){ return; }
+      attachmentsEl.innerHTML = '';
+      if(!state.attachments.length){
+        attachmentsEl.classList.add('is-empty');
+        return;
+      }
+      attachmentsEl.classList.remove('is-empty');
+      const title = document.createElement('p');
+      title.className = 'attachments-title';
+      title.textContent = t('attachmentsHeading');
+      const list = document.createElement('ul');
+      list.className = 'attachments-list';
+      state.attachments.forEach((item, index) => {
+        const li = document.createElement('li');
+        li.className = 'attachments-item';
+        const meta = document.createElement('div');
+        meta.className = 'attachments-meta';
+        const name = document.createElement('span');
+        name.className = 'attachments-name';
+        name.textContent = item.name;
+        const size = document.createElement('span');
+        size.className = 'attachments-size';
+        size.textContent = `${Math.max(1, Math.round((item.size || 0) / 1024))} KB`;
+        meta.append(name, size);
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'attachments-remove';
+        remove.textContent = '×';
+        remove.setAttribute('aria-label', `Remove ${item.name}`);
+        remove.addEventListener('click', () => {
+          state.attachments.splice(index, 1);
+          renderAttachments();
+          setStatus('attachmentRemoved', 'info', { name: item.name });
+        });
+        li.append(meta, remove);
+        list.appendChild(li);
+      });
+      attachmentsEl.append(title, list);
+    }
+
+    function ensureAttachmentCapacity(size){
+      if(state.attachments.length >= MAX_ATTACHMENTS){
+        setStatus('attachmentLimit', 'warn');
+        return false;
+      }
+      if((totalAttachmentBytes() + size) > MAX_ATTACHMENT_BYTES){
+        setStatus('uploadTooLarge', 'warn');
+        return false;
+      }
+      return true;
+    }
+
+    async function queueAttachment(file){
+      let type = file.type || '';
+      if(type.includes(';')){ type = type.split(';')[0]; }
+      if(type){ type = type.toLowerCase(); }
+      if(!type){
+        const ext = file.name.split('.').pop()?.toLowerCase() || '';
+        type = EXTENSION_MIME_MAP[ext] || 'application/octet-stream';
+      }
+      if(ATTACHMENT_TYPES.size && !ATTACHMENT_TYPES.has(type)){
+        setStatus('uploadUnsupported', 'warn');
+        return;
+      }
+      const buffer = await file.arrayBuffer();
+      const size = buffer.byteLength;
+      if(size > MAX_ATTACHMENT_BYTES){
+        setStatus('uploadTooLarge', 'warn');
+        return;
+      }
+      if(!ensureAttachmentCapacity(size)){
+        return;
+      }
+      const data = arrayBufferToBase64(buffer);
+      const safeName = sanitizeFileName(file.name);
+      state.attachments.push({ name: safeName, type, data, size });
+      renderAttachments();
+      setStatus('uploadReady', 'success', { name: safeName });
+      appendMessage('system', t('uploadReadyDetail', { name: safeName, size: Math.max(1, Math.round(size / 1024)) }));
+    }
+
+    function arrayBufferToBase64(buffer){
+      let binary = '';
+      const bytes = new Uint8Array(buffer);
+      const len = bytes.byteLength;
+      for(let i = 0; i < len; i += 4096){
+        const chunk = bytes.subarray(i, Math.min(i + 4096, len));
+        binary += String.fromCharCode(...chunk);
+      }
+      return btoa(binary);
+    }
+
     async function sendMessage(){
       if(!msgInput || !sendBtn){ return; }
       const text = normalize(msgInput.value || '');
       if(!text){
-        setStatus('Type a message to begin.', 'warn');
+        setStatus('typePrompt', 'warn');
         msgInput.focus();
         return;
       }
@@ -187,17 +496,26 @@
       msgInput.value = '';
       msgInput.focus();
 
-      const provider = providerSelect ? providerSelect.value : 'codex';
-      const payload = { provider, message: text, lang: state.lang, honeypot: '' };
+      const provider = providerSelect ? providerSelect.value : 'atlas';
+      const payload = {
+        provider,
+        message: text,
+        lang: state.lang,
+        honeypot: '',
+        attachments: state.attachments.slice()
+      };
 
       sendBtn.disabled = true;
       msgInput.disabled = true;
-      setStatus('Sending…');
+      setStatus('sending');
 
       try{
+        const headers = { 'Content-Type': 'application/json' };
+        const traceId = (window.crypto && typeof window.crypto.randomUUID === 'function') ? window.crypto.randomUUID() : null;
+        if(traceId){ headers['X-Trace-Id'] = traceId; }
         const res = await fetch(GATEWAY_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify(payload)
         });
 
@@ -207,22 +525,85 @@
 
         if(ok && content){
           appendMessage('assistant', content);
-          setStatus('Delivered', 'success');
+          setStatus('delivered', 'success');
+          state.attachments = [];
+          renderAttachments();
         }else if(ok){
           appendMessage('assistant', JSON.stringify(data, null, 2));
-          setStatus('Response received', 'success');
+          setStatus('responseReceived', 'success');
+          state.attachments = [];
+          renderAttachments();
         }else{
           appendMessage('system', data.error || `${res.status} ${res.statusText}`);
-          setStatus('Request failed', 'error');
+          setStatus('requestFailed', 'error');
         }
       }catch(err){
         const message = err instanceof Error ? err.message : 'Network error';
         appendMessage('system', message);
-        setStatus('Network error', 'error');
+        setStatus('networkError', 'error');
       }finally{
         sendBtn.disabled = false;
         msgInput.disabled = false;
         msgInput.focus();
+      }
+    }
+
+    async function startRecording(){
+      if(!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function' || typeof MediaRecorder === 'undefined'){
+        if(recordBtn){
+          recordBtn.disabled = true;
+          recordBtn.classList.add('is-disabled');
+        }
+        setStatus('recordingUnsupported', 'warn');
+        return;
+      }
+      try{
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        state.mediaStream = stream;
+        state.mediaRecorder = new MediaRecorder(stream);
+        const chunks = [];
+        state.mediaRecorder.addEventListener('dataavailable', (event) => {
+          if(event.data && event.data.size){
+            chunks.push(event.data);
+          }
+        });
+        state.mediaRecorder.addEventListener('stop', async () => {
+          const blob = new Blob(chunks, { type: state.mediaRecorder.mimeType || 'audio/webm' });
+          stream.getTracks().forEach((track) => track.stop());
+          state.mediaStream = null;
+          state.mediaRecorder = null;
+          state.recording = false;
+          recordBtn?.classList.remove('is-active');
+          recordBtn?.setAttribute('aria-pressed', 'false');
+          recordBtn.textContent = t('recordStart');
+          try{
+            const baseName = `voice-${Date.now()}.webm`;
+            const normalizedType = (blob.type || 'audio/webm').split(';')[0].toLowerCase();
+            const file = new File([blob], baseName, { type: normalizedType });
+            await queueAttachment(file);
+            setStatus('recordReady', 'success');
+            appendMessage('system', t('voiceStopped'));
+          }catch(error){
+            setStatus('recordError', 'error');
+            appendMessage('system', t('recordErrorDetail'));
+          }
+        });
+        state.mediaRecorder.start();
+        state.recording = true;
+        recordBtn?.classList.add('is-active');
+        recordBtn?.setAttribute('aria-pressed', 'true');
+        recordBtn.textContent = t('recordStop');
+        setStatus('recording');
+        appendMessage('system', t('voiceArmed'));
+      }catch(error){
+        setStatus('recordError', 'error');
+        appendMessage('system', t('recordErrorDetail'));
+      }
+    }
+
+    function stopRecording(){
+      if(state.mediaRecorder && state.recording){
+        state.mediaRecorder.stop();
       }
     }
 
@@ -252,32 +633,31 @@
     if(langToggle){
       langToggle.addEventListener('click', () => {
         state.lang = state.lang === 'en' ? 'es' : 'en';
-        langToggle.textContent = state.lang.toUpperCase();
-        langToggle.setAttribute('aria-label', `Language ${state.lang.toUpperCase()}`);
-        setStatus(`Language set to ${state.lang.toUpperCase()}.`);
+        try{ localStorage.setItem(STORAGE_KEYS.lang, state.lang); }catch{}
+        setStatus('languageSet', 'info', { code: state.lang.toUpperCase() });
+        updateLanguageUI();
       });
     }
 
     if(muteToggle){
+      muteToggle.textContent = state.muted ? t('muteLabelOff') : t('muteLabelOn');
+      muteToggle.setAttribute('aria-pressed', String(state.muted));
+      if(log){ log.setAttribute('aria-live', state.muted ? 'off' : 'polite'); }
       muteToggle.addEventListener('click', () => {
         state.muted = !state.muted;
         muteToggle.setAttribute('aria-pressed', String(state.muted));
-        muteToggle.textContent = state.muted ? 'Muted' : 'Mute';
-        setStatus(state.muted ? 'Notifications muted.' : 'Notifications active.');
+        muteToggle.textContent = state.muted ? t('muteLabelOff') : t('muteLabelOn');
+        if(log){ log.setAttribute('aria-live', state.muted ? 'off' : 'polite'); }
+        setStatus(state.muted ? 'muteOn' : 'muteOff');
       });
     }
 
     if(recordBtn){
-      recordBtn.addEventListener('click', () => {
-        state.recording = !state.recording;
-        recordBtn.classList.toggle('is-active', state.recording);
-        recordBtn.setAttribute('aria-pressed', String(state.recording));
-        recordBtn.textContent = state.recording ? 'Stop' : 'Record';
-        setStatus(state.recording ? 'Recording… (preview)' : 'Recording saved.');
+      recordBtn.addEventListener('click', async () => {
         if(state.recording){
-          appendMessage('system', 'Voice recorder armed — capturing audio preview.');
+          stopRecording();
         }else{
-          appendMessage('system', 'Voice recorder stopped. Audio not yet uploaded.');
+          await startRecording();
         }
       });
     }
@@ -290,13 +670,14 @@
       uploadInput.addEventListener('change', () => {
         if(uploadInput.files && uploadInput.files.length){
           const file = uploadInput.files[0];
-          const size = file.size ? ` (${Math.max(1, Math.round(file.size / 1024))} KB)` : '';
-          appendMessage('system', `Attached ${file.name}${size}.`);
-          setStatus(`Ready to upload ${file.name}.`);
+          queueAttachment(file);
         }
         uploadInput.value = '';
       });
     }
+
+    updateLanguageUI();
+    setStatus('gatewayConfigured', 'info', { url: new URL(GATEWAY_URL).hostname });
   </script>
 </body>
 </html>
