@@ -28,9 +28,6 @@
     .brand-glow{width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at center,#43d3ff,#2b6bff);box-shadow:0 0 16px rgba(43,107,255,0.45);margin-top:6px}
     .brand-copy{display:flex;flex-direction:column;gap:4px}
     .brand-title{font-size:1.05rem;font-weight:600;letter-spacing:0.02em;color:#0f172a}
-    .provider-select{display:flex;align-items:center;gap:8px;font-size:0.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em}
-    .provider-select select{appearance:none;border:1px solid var(--panel-border);border-radius:999px;background:var(--accent);padding:6px 18px;font:inherit;color:#1f2a44;cursor:pointer;transition:border-color .2s ease,box-shadow .2s ease}
-    .provider-select select:focus-visible{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(43,107,255,0.35)}
     .toolbar-controls{display:flex;gap:10px}
     .chip{border:none;border-radius:999px;background:var(--primary);color:#fff;font-size:0.82rem;font-weight:600;padding:9px 20px;cursor:pointer;box-shadow:0 12px 24px rgba(43,107,255,0.28);transition:transform .2s ease,box-shadow .2s ease}
     .chip:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(43,107,255,0.45)}
@@ -92,13 +89,6 @@
           <span class="brand-glow" aria-hidden="true"></span>
           <div class="brand-copy">
             <span class="brand-title">Codah Console</span>
-            <label class="provider-select" for="provider">
-              <span>Route</span>
-              <select id="provider" name="provider">
-                <option value="atlas">Atlas (Edge Primary)</option>
-                <option value="aurora">Aurora (Resilient Fallback)</option>
-              </select>
-            </label>
           </div>
         </div>
         <div class="toolbar-controls">
@@ -164,9 +154,7 @@
         attachmentLimit: 'Attachment limit reached.',
         attachmentRemoved: '{name} removed.',
         attachmentsHeading: 'Attachments ready:',
-        gatewayConfigured: 'Using gateway {url}.',
-        providerAtlas: 'Atlas (Edge Primary)',
-        providerAurora: 'Aurora (Resilient Fallback)'
+        gatewayConfigured: 'Using gateway {url}.'
       },
       es: {
         emptyState: 'Saluda para iniciar una conversación.',
@@ -201,15 +189,8 @@
         attachmentLimit: 'Se alcanzó el límite de adjuntos.',
         attachmentRemoved: '{name} eliminado.',
         attachmentsHeading: 'Adjuntos listos:',
-        gatewayConfigured: 'Usando gateway {url}.',
-        providerAtlas: 'Atlas (Principal en el Borde)',
-        providerAurora: 'Aurora (Respaldo resiliente)'
+        gatewayConfigured: 'Usando gateway {url}.'
       }
-    };
-
-    const providerLabels = {
-      atlas: { key: 'providerAtlas' },
-      aurora: { key: 'providerAurora' }
     };
 
     const ATTACHMENT_TYPES = new Set([
@@ -264,6 +245,7 @@
     }
 
     const GATEWAY_URL = resolveGatewayUrl();
+    const DEFAULT_PROVIDER = 'atlas';
 
     const $ = (id) => document.getElementById(id);
     const state = {
@@ -281,7 +263,6 @@
     const statusEl = $('status');
     const log = $('log');
     let emptyState = $('empty-state');
-    const providerSelect = $('provider');
     const langToggle = $('lang-toggle');
     const muteToggle = $('mute-toggle');
     const recordBtn = $('record');
@@ -366,14 +347,6 @@
       }
       if(emptyState){
         emptyState.textContent = t('emptyState');
-      }
-      if(providerSelect){
-        Array.from(providerSelect.options).forEach((option) => {
-          const meta = providerLabels[option.value];
-          if(meta){
-            option.textContent = t(meta.key);
-          }
-        });
       }
       renderAttachments();
     }
@@ -496,7 +469,7 @@
       msgInput.value = '';
       msgInput.focus();
 
-      const provider = providerSelect ? providerSelect.value : 'atlas';
+      const provider = DEFAULT_PROVIDER;
       const payload = {
         provider,
         message: text,
